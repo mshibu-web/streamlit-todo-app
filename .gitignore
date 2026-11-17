@@ -1,0 +1,17 @@
+# ===== 認証情報（絶対にGitHubへ上げない）=====
+.streamlit/secrets.toml
+.streamlit/config.toml
+*.json
+*.toml.bak
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# ===== エディタ・OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
