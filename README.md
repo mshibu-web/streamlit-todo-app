@@ -85,6 +85,19 @@ streamlit run app.py
 ```
 ブラウザで http://localhost:8501 が開きます。
 
+### 開発用プレビュー（ログインなしで画面だけ確認する）
+
+```powershell
+conda activate todo-app
+streamlit run dev_preview.py --server.address localhost --server.port 8502
+```
+ブラウザで http://localhost:8502 を開きます。
+
+- ログインを省略し、メモリ上の見本データで表示します。Google には接続しません（停止するとデータは消えます）
+- 本物の `secrets.toml` は読まず、ダミーの設定だけを使います
+- localhost 以外から開いた場合は表示しません
+- ログインを省略できるのは `dev_preview.py` を起動したときだけです。`app.py`（本番の入口）には省略する仕組みがなく、必ずログインが必要です
+
 ## 5. 公開（Streamlit Community Cloud）
 
 要件定義書 12.2 の手順で行います。Secrets には **公開用** のスプレッドシートIDを設定します。

@@ -11,13 +11,28 @@ TITLE_MAX_LENGTH = 50
 CONTENT_MAX_LENGTH = 500
 MAX_TODO_COUNT = 200
 
+# 優先度（要件定義書 5.6）。高い順に並べている
+PRIORITIES = ("高", "中", "低")
+DEFAULT_PRIORITY = "中"
+
 
 def clean_text(text: str | None) -> str:
     """前後の空白を取り除いた文字列を返す（None は空文字にする）。"""
     return (text or "").strip()
 
 
-def validate_todo(title: str | None, content: str | None, due_date: date | None) -> list[str]:
+def normalize_priority(value: str | None) -> str:
+    """シートから読んだ優先度を整える。空欄や「高・中・低」以外の値は「中」として扱う。"""
+    value = clean_text(value)
+    return value if value in PRIORITIES else DEFAULT_PRIORITY
+
+
+def validate_todo(
+    title: str | None,
+    content: str | None,
+    due_date: date | None,
+    priority: str | None = DEFAULT_PRIORITY,
+) -> list[str]:
     """Todo の入力内容をチェックし、エラーメッセージの一覧を返す。
 
     問題がなければ空のリストを返す。
@@ -42,5 +57,9 @@ def validate_todo(title: str | None, content: str | None, due_date: date | None)
         errors.append("期日を選択してください")
     elif not isinstance(due_date, date):
         errors.append("期日の形式が正しくありません")
+
+    # 優先度：高・中・低のどれか
+    if priority not in PRIORITIES:
+        errors.append("優先度を選択してください")
 
     return errors

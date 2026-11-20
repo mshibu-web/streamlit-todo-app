@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from validators import CONTENT_MAX_LENGTH, TITLE_MAX_LENGTH, validate_todo
+from validators import CONTENT_MAX_LENGTH, TITLE_MAX_LENGTH, normalize_priority, validate_todo
 
 DUE = date(2026, 11, 20)
 
@@ -40,6 +40,24 @@ def test_期日未入力はエラー():
 
 def test_過去日も登録できる():
     assert validate_todo("t", "", date(2000, 1, 1)) == []
+
+
+def test_優先度は高中低ならOK():
+    for priority in ("高", "中", "低"):
+        assert validate_todo("t", "", DUE, priority) == []
+
+
+def test_優先度がそれ以外ならエラー():
+    assert validate_todo("t", "", DUE, "最高") == ["優先度を選択してください"]
+    assert validate_todo("t", "", DUE, None) == ["優先度を選択してください"]
+
+
+def test_normalize_priorityは不正な値を中にする():
+    assert normalize_priority("高") == "高"
+    assert normalize_priority(" 低 ") == "低"
+    assert normalize_priority("") == "中"
+    assert normalize_priority(None) == "中"
+    assert normalize_priority("high") == "中"
 
 
 def test_複数のエラーをまとめて返す():
