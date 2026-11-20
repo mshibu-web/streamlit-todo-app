@@ -100,11 +100,11 @@ def test_初期表示はカレンダーで今月と今日が表示される(shee
     assert "個人情報" in at.caption[0].value
     assert "2026年11月" in all_markdown(at)
     assert "#### 11月19日（木）のToDo" in texts(at.markdown)
-    assert "この日のToDoはありません。左下の ＋ から追加できます" in texts(at.caption)
+    assert "この日のToDoはありません。「＋ この日にToDoを追加」から登録できます" in texts(at.caption)
     assert at.title[0].value == "📝 ToDoリスト"
-    assert "add_on_day" not in [b.key for b in at.button]  # 小さな追加ボタンは整理した（＋ボタンだけ）
+    assert at.button(key="add_on_day").label == "＋ この日にToDoを追加"
     assert at.button(key="day_2026-11-19")
-    assert at.button(key="fab_add")
+    assert at.button(key="fab_add").label == "＋ ToDoを追加"
     assert not panel_is_open(at)  # 登録フォームは常時表示しない
 
 
@@ -149,9 +149,42 @@ def test_日付を選んでから追加するとその日が期限の初期値�
     at.button(key="day_2026-11-25").click().run()
     assert "#### 11月25日（水）のToDo" in texts(at.markdown)
 
-    at = open_add(at)  # 右下の＋ボタン
+    at = open_add(at)  # 左下の「＋ ToDoを追加」ボタン
     assert panel_is_open(at)
     assert at.date_input(key="new_due").value == date(2026, 11, 25)
+
+
+def test_日付を押してこの日に追加を押すとその日が期限の登録パネルが開き既存のToDoも見える(sheet):
+    sheet.rows += [row("a1", "歯医者", "2026-11-25", priority="高"), row("a2", "別の日", "2026-11-26")]
+    at = make_app()
+    at.button(key="day_2026-11-25").click().run()
+    assert "歯医者" in all_markdown(at)  # 日付を押すと、その日のToDoが下に出る
+    assert not panel_is_open(at)  # 日付を押しただけでは登録パネルは開かない（一覧を確認できる）
+
+    at = at.button(key="add_on_day").click().run()
+    assert panel_is_open(at)
+    assert at.date_input(key="new_due").value == date(2026, 11, 25)  # 押した日が期限の初期値
+    assert "11月25日（水）の登録済みToDo（1件）" in texts(at.caption)  # パネルでも既存のToDoが見える
+    panel_md = all_markdown(at)
+    assert 'class="day-list"' in panel_md and "歯医者" in panel_md
+
+    at = fill_and_add(at, "日付を変えて登録", date(2026, 11, 27))  # 期限は変更もできる
+    assert sheet.rows[-1][1:4] == ["日付を変えて登録", "", "2026-11-27"]
+    assert "#### 11月27日（金）のToDo" in texts(at.markdown)
+
+
+def test_ToDoが無い日にこの日に追加を押すとまだありませんと表示(sheet):
+    at = make_app()
+    at.button(key="day_2026-11-28").click().run()
+    at = at.button(key="add_on_day").click().run()
+    assert at.date_input(key="new_due").value == date(2026, 11, 28)
+    assert "11月28日（土）のToDoはまだありません" in texts(at.caption)
+
+
+def test_一覧表示ではこの日に追加ボタンは出ない(sheet):
+    at = show_list(make_app())
+    assert "add_on_day" not in [b.key for b in at.button]
+    assert at.button(key="fab_add").label == "＋ ToDoを追加"
 
 
 def test_一覧表示でもプラスボタンが使え期限の初期値は今日(sheet):
