@@ -29,7 +29,7 @@ def test_done_todo_is_gray_regardless_of_priority(priority):
     assert 'class="todo-chip p-done"' in chip_html(todo)
     assert "p-done" in badge_html(todo)
     text = card_text_html(todo, "今日", False)
-    assert 'class="card-title done"' in text  # 取り消し線のクラス
+    assert 'class="card-title done"' in text  # 完了のクラス（グレーの文字）
     assert '<span class="done-mark">✓</span>' in text and "✅" not in text
 
 
@@ -45,4 +45,4 @@ def test_done_colors_are_gray():
         value = CSS.split(f"--{name}:")[1].split(";")[0].strip().lstrip("#")
         r, g, b = (int(value[i : i + 2], 16) for i in (0, 2, 4))
         assert max(r, g, b) - min(r, g, b) <= 12, name
-    assert "text-decoration: line-through" in CSS.split(".p-done")[1].split("}")[0]
+    assert "line-through" not in CSS  # 完了済みにも取り消し線は付けない（✓ とグレーで区別する）

@@ -190,7 +190,7 @@ button[data-variant="segmented_control"][aria-checked="true"] {
 .p-high { background: var(--high-bg); color: var(--high-fg); } .p-high .chip-dot { background: var(--high-dot); }
 .p-mid  { background: var(--mid-bg);  color: var(--mid-fg);  } .p-mid  .chip-dot { background: var(--mid-dot); }
 .p-low  { background: var(--low-bg);  color: var(--low-fg);  } .p-low  .chip-dot { background: var(--low-dot); }
-.p-done { background: var(--done-bg); color: var(--done-fg); text-decoration: line-through; } .p-done .chip-dot { background: var(--done-dot); }
+.p-done { background: var(--done-bg); color: var(--done-fg); } .p-done .chip-dot { background: var(--done-dot); }
 .p-more { background: transparent; color: var(--muted); }
 
 /* ---- カード（横幅いっぱい） ---- */
@@ -207,9 +207,8 @@ button[data-variant="segmented_control"][aria-checked="true"] {
 [class*="st-key-row-"] { flex-wrap: nowrap !important; }
 .card-body { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; width: 100%%; }
 .card-title { flex: 1 1 240px; min-width: 0; font-weight: 600; font-size: 1.02rem; color: var(--text); overflow-wrap: anywhere; }
-/* 取り消し線はタイトルの文字だけに付ける（先頭の ✓ には付けない） */
+/* 完了済み：取り消し線は付けず、グレーの文字と先頭の ✓ で区別する */
 .card-title.done { color: var(--done-fg); }
-.card-title.done .title-text { text-decoration: line-through; }
 .done-mark { color: var(--done-fg); font-weight: 700; margin-right: .4em; }
 .card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: .82rem; color: var(--muted); }
 .badge { border-radius: 999px; padding: 1px 10px; font-size: .75rem; font-weight: 600; white-space: nowrap; }

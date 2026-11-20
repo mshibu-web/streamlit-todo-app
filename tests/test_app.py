@@ -29,11 +29,30 @@ def sheet(monkeypatch):
     return fake
 
 
-def make_app():
+OWNER = "owner@example.com"  # 許可リストに入っている本人（テスト用の架空のアドレス）
+DUMMY_AUTH = {
+    "redirect_uri": "http://localhost:8501/oauth2callback",
+    "cookie_secret": "dummy-cookie-secret",
+    "client_id": "dummy-client-id",
+    "client_secret": "dummy-client-secret",
+    "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
+}
+
+
+def logged_in(email=OWNER, verified=True):
+    return {"is_logged_in": True, "email": email, "email_verified": verified}
+
+
+def make_app(user=None, allowed=(OWNER,), run=True):
+    """テスト用のアプリ。何も指定しなければ、許可された本人がログインした状態。"""
     at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.secrets["spreadsheet"] = {"id": "dummy-id", "worksheet": "todos"}
     at.secrets["gcp_service_account"] = {"type": "service_account"}
-    return at.run()
+    at.secrets["auth"] = dict(DUMMY_AUTH)
+    if allowed is not None:
+        at.secrets["access"] = {"allowed_emails": list(allowed)}
+    at.user = logged_in() if user is None else user
+    return at.run() if run else at
 
 
 def row(todo_id, title, due, priority="中", completed_at="", created="2026-11-01 09:00:00"):
@@ -398,3 +417,79 @@ def test_読み込みに失敗しても内部情報は表示しない(monkeypatc
 def test_設定が無ければ設定不足と表示(sheet):
     at = AppTest.from_file(APP_PATH, default_timeout=30).run()
     assert "設定が不足しています。管理者に連絡してください" in texts(at.error)
+
+
+# ---------- T13：ログイン（ログイン前・許可されていない人は、シートに1回も接続しない） ----------
+
+
+@pytest.fixture
+def connections(monkeypatch):
+    """open_worksheet（シートへの接続）が呼ばれた回数を数える。"""
+    calls = []
+    fake = FakeWorksheet([HEADERS, row("a1", "秘密のToDo", "2026-11-19")])
+
+    def counting_open(*args, **kwargs):
+        calls.append(1)
+        return fake
+
+    monkeypatch.setattr(todo_repository, "open_worksheet", counting_open)
+    monkeypatch.setattr(todo_repository, "today_jst", lambda: TODAY)
+    st.cache_resource.clear()
+    st.cache_data.clear()
+    return calls
+
+
+def assert_todos_hidden(at):
+    assert "秘密のToDo" not in all_markdown(at)
+    assert not [b for b in at.button if b.key == "fab_add"]  # ＋ボタンも出さない
+
+
+def test_ログイン前はログインボタンだけでシートに接続しない(connections):
+    at = make_app(user={"is_logged_in": False})
+    assert not at.exception
+    assert [b.label for b in at.button] == ["Googleでログイン"]
+    assert "このアプリは許可された人だけが使えます。" in all_markdown(at)
+    assert_todos_hidden(at)
+    assert connections == []
+
+
+def test_許可リストにない人は許可されていないと表示しシートに接続しない(connections):
+    at = make_app(user=logged_in("stranger@example.com"))
+    assert texts(at.warning) == ["このアカウントは利用が許可されていません"]
+    assert [b.label for b in at.button] == ["ログアウト"]
+    assert_todos_hidden(at)
+    assert connections == []
+
+
+def test_メール未確認の本人アドレスは許可しない(connections):
+    at = make_app(user=logged_in(OWNER, verified=False))
+    assert texts(at.warning) == ["このアカウントは利用が許可されていません"]
+    assert connections == []
+
+
+@pytest.mark.parametrize("allowed", [None, ()])
+def test_許可リストが未設定や空なら誰も使えない(connections, allowed):
+    at = make_app(allowed=allowed)
+    assert texts(at.warning) == ["このアカウントは利用が許可されていません"]
+    assert connections == []
+
+
+def test_ログイン設定が欠けていれば設定不足で止まりシートに接続しない(connections):
+    at = make_app(run=False)
+    auth = dict(DUMMY_AUTH)
+    del auth["client_secret"]
+    at.secrets["auth"] = auth
+    at.run()
+    assert "設定が不足しています。管理者に連絡してください" in texts(at.error)
+    assert_todos_hidden(at)
+    assert connections == []
+
+
+def test_許可された本人は大文字小文字の違いがあっても使えてサイドバーにメールとログアウト(connections):
+    at = make_app(user=logged_in("Owner@Example.COM"))
+    assert not at.exception
+    assert not at.warning
+    assert "秘密のToDo" in all_markdown(at)
+    assert connections == [1]
+    assert "Owner@Example.COM" in [m.value for m in at.sidebar.markdown]
+    assert [b.label for b in at.sidebar.button] == ["ログアウト"]

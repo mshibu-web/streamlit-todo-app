@@ -3,7 +3,8 @@
 起動方法: streamlit run app.py
 
 画面の流れ
-    ダッシュボード → カレンダー（または一覧） → 選んだ日のToDo
+    Googleでログイン → 許可リストの確認（本人以外はここで止まる）
+    → ダッシュボード → カレンダー（または一覧） → 選んだ日のToDo
     左下の＋ボタン → 右から開く登録パネル
     「詳細」ボタン → 右から開く詳細パネル（確認・編集・完了・削除）
 """
@@ -14,6 +15,7 @@ from datetime import date
 import streamlit as st
 
 import todo_repository
+from auth import allowed_email_set, auth_settings_ready, is_allowed
 from todo_logic import (
     FILTER_ALL,
     FILTER_DONE,
@@ -436,6 +438,39 @@ def init_state() -> None:
     st.session_state.setdefault("message", None)
 
 
+def login_gate() -> dict:
+    """ログインと許可リストを確認する（要件定義書 5.8・8.2）。
+
+    許可された本人のときだけ、ログイン中の情報を返す。
+    それ以外は画面を表示して st.stop() で止める。止まるまでスプレッドシートには一切接続しない。
+    """
+    if not secrets_ready() or not auth_settings_ready(st.secrets.get("auth")):
+        st.error("設定が不足しています。管理者に連絡してください")
+        st.stop()
+
+    user = st.user.to_dict()
+    if not user.get("is_logged_in"):
+        with st.container(border=True, key="login_box"):
+            st.write("このアプリは許可された人だけが使えます。")
+            st.button("Googleでログイン", key="login", on_click=st.login, type="primary", icon=":material/login:")
+        st.stop()
+
+    allowed = allowed_email_set(st.secrets.get("access", {}).get("allowed_emails"))
+    if not is_allowed(user, allowed):
+        logger.warning("許可リストにないアカウントでのログインがありました")  # メールアドレスはログに出さない
+        st.warning("このアカウントは利用が許可されていません")
+        st.button("ログアウト", key="logout_denied", on_click=st.logout, icon=":material/logout:")
+        st.stop()
+    return user
+
+
+def render_sidebar(user: dict) -> None:
+    with st.sidebar:
+        st.caption("ログイン中")
+        st.write(user.get("email", ""))
+        st.button("ログアウト", key="logout", on_click=st.logout, icon=":material/logout:")
+
+
 def main() -> None:
     st.html(CSS)
     st.html(NO_TRANSLATE_SCRIPT, unsafe_allow_javascript=True)
@@ -443,13 +478,12 @@ def main() -> None:
 
     title_col, view_col = st.columns([3, 2], vertical_alignment="center")
     title_col.title("📝 ToDoリスト")
-    with view_col.container(horizontal=True, horizontal_alignment="right"):
-        view = segmented("表示", [VIEW_CALENDAR, VIEW_LIST], "view")
     st.caption("テスト用のアプリです。個人情報や機密情報は入力しないでください。")
 
-    if not secrets_ready():
-        st.error("設定が不足しています。管理者に連絡してください")
-        st.stop()
+    user = login_gate()  # ここから先は、許可された本人だけ
+    render_sidebar(user)
+    with view_col.container(horizontal=True, horizontal_alignment="right"):
+        view = segmented("表示", [VIEW_CALENDAR, VIEW_LIST], "view")
 
     try:
         todos, skipped = load_todos()
