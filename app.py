@@ -77,6 +77,28 @@ def load_todos() -> tuple[list[Todo], int]:
     return get_repository().list_todos()
 
 
+def has_access() -> bool:
+    """いまの利用者が、許可された本人としてログインしているか（毎回 Secrets と st.user から判定する）。"""
+    if not secrets_ready() or not auth_settings_ready(st.secrets.get("auth")):
+        return False
+    allowed = allowed_email_set(st.secrets.get("access", {}).get("allowed_emails"))
+    return is_allowed(st.user.to_dict(), allowed)
+
+
+def write_denied() -> bool:
+    """データを変更するボタンの処理の最初に呼ぶ。許可が無ければ True を返す（呼び出し側は何もせず終わる）。
+
+    ボタンの処理（コールバック）は、画面の最初にある login_gate より先に実行される。
+    そのため、画面に残っていたボタンが、許可が無くなった後（許可リストから外れた・ログアウトした など）に
+    押されても、シートに書き込まないようにする。このあと login_gate がログイン画面などを表示する。
+    """
+    if has_access():
+        return False
+    logger.warning("許可されていない状態での変更操作を止めました")  # メールアドレスはログに出さない
+    close_panel()
+    return True
+
+
 def find_todo(todo_id: str) -> Todo | None:
     todos, _ = load_todos()
     return next((t for t in todos if t.id == todo_id), None)
@@ -162,6 +184,8 @@ def move_month(months: int) -> None:
 
 
 def handle_add() -> None:
+    if write_denied():
+        return
     title = st.session_state["new_title"]
     content = st.session_state["new_content"]
     due_date = st.session_state["new_due"]
@@ -185,6 +209,8 @@ def handle_add() -> None:
 
 
 def handle_save(todo_id: str) -> None:
+    if write_denied():
+        return
     title = st.session_state["edit_title"]
     content = st.session_state["edit_content"]
     due_date = st.session_state["edit_due"]
@@ -212,6 +238,8 @@ def handle_save(todo_id: str) -> None:
 
 
 def save_completed(todo_id: str, completed: bool) -> None:
+    if write_denied():
+        return
     try:
         get_repository().set_completed(todo_id, completed)
         set_message("success", "完了にしました" if completed else "未完了に戻しました")
@@ -227,6 +255,8 @@ def handle_checkbox(todo_id: str) -> None:
 
 def handle_delete(todo_id: str) -> None:
     """「削除を確定」が押されたとき。"""
+    if write_denied():
+        return
     try:
         get_repository().delete_todo(todo_id)
     except Exception as exc:
@@ -455,8 +485,7 @@ def login_gate() -> dict:
             st.button("Googleでログイン", key="login", on_click=st.login, type="primary", icon=":material/login:")
         st.stop()
 
-    allowed = allowed_email_set(st.secrets.get("access", {}).get("allowed_emails"))
-    if not is_allowed(user, allowed):
+    if not has_access():
         logger.warning("許可リストにないアカウントでのログインがありました")  # メールアドレスはログに出さない
         st.warning("このアカウントは利用が許可されていません")
         st.button("ログアウト", key="logout_denied", on_click=st.logout, icon=":material/logout:")

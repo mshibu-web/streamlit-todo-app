@@ -485,6 +485,46 @@ def test_ログイン設定が欠けていれば設定不足で止まりシー�
     assert connections == []
 
 
+@pytest.mark.parametrize(
+    "later_user",
+    [logged_in("stranger@example.com"), {"is_logged_in": False}, logged_in(OWNER, verified=False)],
+    ids=["許可リスト外", "ログアウト済み", "メール未確認"],
+)
+def test_途中で許可が無くなったら画面に残ったボタンを押しても書き込まない(sheet, later_user):
+    sheet.rows.append(row("a1", "資料作成", "2026-11-19"))
+    at = make_app()
+    # 許可された本人の画面で、登録パネル・詳細パネルを開いた状態にする
+    at = open_add(at)
+    at.text_input(key="new_title").input("勝手な登録")
+    at.user = later_user  # ここで許可が無くなる（許可リストから外れた・ログアウトした など）
+    at.button(key="add_submit").click().run()
+    assert len(sheet.rows) == 2  # 見出し＋既存の1行のまま
+    assert all("勝手な登録" not in r for r in sheet.rows)
+    assert not [c for c in sheet.calls if c[0] in ("append", "update", "delete")]
+
+
+@pytest.mark.parametrize("action", ["checkbox", "delete", "save"])
+def test_許可が無くなった後は完了切替や削除や編集もできない(sheet, action):
+    sheet.rows.append(row("a1", "資料作成", "2026-11-19"))
+    at = make_app()
+    if action == "checkbox":
+        at.user = logged_in("stranger@example.com")
+        at.checkbox(key="done_a1").check().run()
+    else:
+        at = at.button(key="open_a1").click().run()
+        if action == "delete":
+            at = at.button(key="panel_delete").click().run()
+            at.user = logged_in("stranger@example.com")
+            at.button(key="confirm_delete").click().run()
+        else:
+            at = at.button(key="panel_edit").click().run()
+            at.text_input(key="edit_title").input("書き換え")
+            at.user = logged_in("stranger@example.com")
+            at.button(key="save_edit").click().run()
+    assert sheet.rows[1] == row("a1", "資料作成", "2026-11-19")  # 変わっていない
+    assert not [c for c in sheet.calls if c[0] in ("append", "update", "delete")]
+
+
 def test_許可された本人は大文字小文字の違いがあっても使えてサイドバーにメールとログアウト(connections):
     at = make_app(user=logged_in("Owner@Example.COM"))
     assert not at.exception
