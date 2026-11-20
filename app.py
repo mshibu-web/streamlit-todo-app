@@ -5,7 +5,8 @@
 画面の流れ
     Googleでログイン → 許可リストの確認（本人以外はここで止まる）
     → ダッシュボード → カレンダー（または一覧） → 選んだ日のToDo
-    左下の＋ボタン → 右から開く登録パネル
+    日付を押す → その日のToDo ＋「この日にToDoを追加」ボタン → 右から開く登録パネル（期限はその日）
+    左下の「＋ ToDoを追加」ボタン → 右から開く登録パネル
     「詳細」ボタン → 右から開く詳細パネル（確認・編集・完了・削除）
 """
 
@@ -137,7 +138,7 @@ def show_message() -> None:
 
 def open_add_panel(due: date) -> None:
     """登録パネルを開く。期限の初期値は due（カレンダーで選んだ日など）。"""
-    st.session_state["panel"] = {"mode": "add"}
+    st.session_state["panel"] = {"mode": "add", "day": due}
     st.session_state["panel_errors"] = []
     st.session_state["new_title"] = ""
     st.session_state["new_content"] = ""
@@ -364,13 +365,20 @@ def render_calendar(todos: list[Todo]) -> None:
                         st.markdown("".join(chips), unsafe_allow_html=True)
 
 
+def day_label(day: date) -> str:
+    return f"{day.month}月{day.day}日（{japanese_weekday(day)}）"
+
+
 def render_selected_day(todos: list[Todo]) -> None:
+    """カレンダーで選んだ日のToDo。見出しの横に「この日に追加」ボタン（押すとこの日が期限の登録パネル）。"""
     day = st.session_state["selected_date"]
-    st.markdown(f"#### {day.month}月{day.day}日（{japanese_weekday(day)}）のToDo")
+    with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center", key="selected_head"):
+        st.markdown(f"#### {day_label(day)}のToDo", width="content")
+        st.button("＋ この日にToDoを追加", key="add_on_day", on_click=open_add_panel, args=(day,), width="content")
 
     day_todos = sort_todos([t for t in todos if t.due_date == day], SORT_BY_PRIORITY)
     if not day_todos:
-        st.caption("この日のToDoはありません。左下の ＋ から追加できます")
+        st.caption("この日のToDoはありません。「＋ この日にToDoを追加」から登録できます")
     for todo in day_todos:
         render_card(todo, show_due_date=False)
 
@@ -384,7 +392,7 @@ def render_list(todos: list[Todo]) -> None:
     shown = sort_todos(filter_todos(todos, FILTER_OPTIONS[filter_label]), SORT_OPTIONS[sort_label])
     st.caption(f"{len(shown)}件を表示中（登録 {len(todos)} / {todo_repository.MAX_TODO_COUNT}件）")
     if not todos:
-        st.write("ToDoはまだありません。左下の ＋ から追加できます")
+        st.write("ToDoはまだありません。左下の「＋ ToDoを追加」から登録できます")
     elif not shown:
         st.caption("条件に合うToDoはありません")
     for todo in shown:
@@ -404,11 +412,25 @@ def todo_form_fields(prefix: str) -> None:
     st.radio("優先度", PRIORITIES, key=f"{prefix}_priority", horizontal=True)
 
 
+def show_existing_on_day(day: date | None) -> None:
+    """登録パネルの上に、開いたときの日付にすでにあるToDoを小さく表示する（重複登録を防ぐため）。"""
+    if day is None:
+        return
+    todos, _ = load_todos()
+    day_todos = sort_todos([t for t in todos if t.due_date == day], SORT_BY_PRIORITY)
+    if not day_todos:
+        st.caption(f"{day_label(day)}のToDoはまだありません")
+        return
+    st.caption(f"{day_label(day)}の登録済みToDo（{len(day_todos)}件）")
+    st.markdown(f'<div class="day-list">{"".join(chip_html(t) for t in day_todos)}</div>', unsafe_allow_html=True)
+
+
 @st.dialog("新しいToDo", position="right", on_dismiss=close_panel)
 def add_panel() -> None:
     if st.session_state.get("panel") is None:
         st.rerun()  # 登録が終わってパネルを閉じたとき
     show_panel_errors()
+    show_existing_on_day(st.session_state["panel"].get("day"))
     with st.form("new_todo", border=False):
         todo_form_fields("new")
         st.form_submit_button("登録する", on_click=handle_add, key="add_submit", type="primary", icon=":material/check:")
@@ -533,9 +555,9 @@ def main() -> None:
         render_list(todos)
         default_due = today()
 
-    # 左下の＋ボタン（カレンダー・一覧の両方で使える。カレンダーで選んだ日を期限の初期値にする）
+    # 左下の「＋ ToDoを追加」ボタン（カレンダー・一覧の両方で使える。カレンダーで選んだ日を期限の初期値にする）
     with st.container(key="fab"):
-        st.button("＋", key="fab_add", on_click=open_add_panel, args=(default_due,), type="primary", help="ToDoを追加")
+        st.button("＋ ToDoを追加", key="fab_add", on_click=open_add_panel, args=(default_due,), type="primary")
 
     panel = st.session_state["panel"]
     if panel and panel["mode"] == "add":

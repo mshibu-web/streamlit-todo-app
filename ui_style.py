@@ -215,13 +215,29 @@ button[data-variant="segmented_control"][aria-checked="true"] {
 .due { white-space: nowrap; } .date { white-space: nowrap; }
 .due.overdue { color: #B5402F; font-weight: 600; }
 
-/* ---- 左下の＋ボタン（大きく目立つ） ---- */
+/* ---- 左下の「＋ ToDoを追加」ボタン（文字付きで大きく目立つ） ---- */
 .st-key-fab { position: fixed; left: 28px; bottom: 28px; z-index: 1000; width: auto !important; }
 .st-key-fab button {
-  width: 68px; height: 68px; border-radius: 50%% !important; padding: 0 !important;
+  height: 60px; padding: 0 26px !important; border-radius: 999px !important;
   box-shadow: 0 8px 20px rgba(62,49,39,.30);
 }
-.st-key-fab button p { font-size: 2.2rem !important; line-height: 1; font-weight: 300; }
+.st-key-fab button p { font-size: 1.1rem !important; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
+
+/* ---- 選んだ日の見出しと「この日にToDoを追加」ボタン ---- */
+.st-key-selected_head { flex-wrap: wrap !important; row-gap: 6px !important; margin-top: 6px; }
+.st-key-selected_head h4 { padding: 0; margin: 0; }
+/* Streamlit 標準の「文字の下の負の余白」を消し、見出しとボタンが重ならないようにする */
+.st-key-selected_head [data-testid="stMarkdown"],
+.st-key-selected_head [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+.st-key-add_on_day button {
+  min-height: 44px; padding: 0 18px !important; border-radius: 999px !important;
+  border: 1.5px solid var(--brand) !important; color: var(--brand) !important; background: var(--surface) !important;
+  font-weight: 700;
+}
+.st-key-add_on_day button:hover { background: var(--today) !important; }
+/* 登録パネルの「この日の登録済みToDo」：スマートフォンでも文字を表示する */
+.day-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 18px; }
+.day-list .todo-chip { font-size: .82rem; padding: 3px 8px; }
 
 /* ---- スマートフォン ---- */
 @media (max-width: 640px) {
@@ -237,8 +253,20 @@ button[data-variant="segmented_control"][aria-checked="true"] {
   .todo-chip { padding: 0; background: transparent !important; justify-content: center; }
   .todo-chip .chip-text { display: none; }
   .p-more .chip-text { display: inline; font-size: .6rem; }
-  .st-key-fab { left: 18px; bottom: 18px; }
-  .st-key-fab button { width: 64px; height: 64px; }
+  .st-key-fab { left: 16px; bottom: 16px; }
+  .st-key-fab button { height: 56px; padding: 0 22px !important; }
+  [class*="st-key-cell-"] { min-height: 64px; }
+  /* スマートフォンでは「この日にToDoを追加」を見出しの下に横幅いっぱいで置く（押しやすくする） */
+  .st-key-selected_head { flex-direction: column !important; align-items: stretch !important; row-gap: 10px !important; }
+  .st-key-add_on_day, .st-key-add_on_day .stButton, .st-key-add_on_day .stButton > div,
+  .st-key-add_on_day button { width: 100%% !important; max-width: none !important; }
+  .st-key-add_on_day button { min-height: 48px; }
+  .day-list .todo-chip { padding: 3px 8px; justify-content: flex-start; }
+  .day-list .todo-chip.p-high { background: var(--high-bg) !important; }
+  .day-list .todo-chip.p-mid  { background: var(--mid-bg) !important; }
+  .day-list .todo-chip.p-low  { background: var(--low-bg) !important; }
+  .day-list .todo-chip.p-done { background: var(--done-bg) !important; }
+  .day-list .todo-chip .chip-text { display: inline; }
 }
 </style>
 """ % COLORS
