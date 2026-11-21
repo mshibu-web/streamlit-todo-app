@@ -1,0 +1,48 @@
+# LINE リマインド通知（要件定義書 第6版 9.4）
+# 毎朝 7:00（日本時間）ごろに、今日が期限・期限切れの未完了ToDoを本人の LINE に1通送る。
+# 秘密の値はすべて GitHub の Secrets から渡す（このファイルには書かない）。
+name: LINE ToDo reminder
+
+on:
+  schedule:
+    - cron: "0 22 * * *" # UTC 22:00 = 日本時間 7:00（混雑時は遅れることがある）
+  workflow_dispatch: # GitHub の画面から手動で実行（動作確認用）
+    inputs:
+      send:
+        description: "実際に LINE に送信する（チェックしなければ件数の確認だけ）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read # コードを読むだけ（書き込みの権限は与えない）
+
+concurrency:
+  group: line-todo-reminder # 同時に2つ動いて二重に送らないようにする
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    # このリポジトリ本体でだけ動かす（コピーされたリポジトリでは動かない）
+    if: github.repository == 'mshibu-web/streamlit-todo-app'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install --disable-pip-version-check -q -r requirements-notify.txt
+      - name: Notify
+        env:
+          NOTIFY_SERVICE_ACCOUNT_JSON: ${{ secrets.NOTIFY_SERVICE_ACCOUNT_JSON }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          LINE_CHANNEL_ID: ${{ secrets.LINE_CHANNEL_ID }}
+          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          APP_URL: ${{ secrets.APP_URL }}
+          # 定期実行は送信する。手動実行は「送信する」にチェックしたときだけ送信する
+          DRY_RUN: ${{ (github.event_name == 'schedule' || inputs.send) && 'false' || 'true' }}
+        run: python notify.py

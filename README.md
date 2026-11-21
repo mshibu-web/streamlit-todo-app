@@ -98,6 +98,21 @@ streamlit run dev_preview.py --server.address localhost --server.port 8502
 - localhost 以外から開いた場合は表示しません
 - ログインを省略できるのは `dev_preview.py` を起動したときだけです。`app.py`（本番の入口）には省略する仕組みがなく、必ずログインが必要です
 
+## LINE リマインド通知（要件定義書 15章）
+
+毎朝 7:00（日本時間）ごろ、今日が期限の未完了ToDoと期限切れの未完了ToDoを、本人の LINE に1通送ります（0件の日は送りません）。
+
+| ファイル | 役割 |
+|---|---|
+| `notify.py` | 通知の処理（シートは読むだけ。送り先は本人1人だけ） |
+| `.github/workflows/notify.yml` | GitHub Actions の定期実行（UTC 22:00）と手動実行 |
+| `requirements-notify.txt` | 通知に必要なライブラリ |
+
+- 秘密の値はすべて GitHub の Secrets に置きます（`NOTIFY_SERVICE_ACCOUNT_JSON`、`SPREADSHEET_ID`、`LINE_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`LINE_USER_ID`、`APP_URL`）
+- 手動実行（Actions → LINE ToDo reminder → Run workflow）は、「送信する」にチェックしない限り件数の確認だけです
+- 実行ログには件数だけが出ます（タイトルや秘密の値は出ません）
+- 公開リポジトリでは、60日間更新がないと定期実行が止まります。GitHub からメールが届いたら、Actions の画面で再開してください
+
 ## 5. 公開（Streamlit Community Cloud）
 
 要件定義書 12.2 の手順で行います。Secrets には **公開用** のスプレッドシートIDを設定します。
