@@ -1,0 +1,3 @@
+# LINE 通知（notify.py）だけに必要なライブラリ。GitHub Actions で使う（Streamlit は入れない）
+gspread==6.2.1
+google-auth==2.62.2
